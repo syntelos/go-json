@@ -32,6 +32,38 @@ func (this Reader) Length() uint32 {
 	return this.length
 }
 
+func (this Reader) Type() NodeType {
+
+	if this.IsNotEmpty() {
+
+		switch this.Head(0) {
+
+		case '[':
+			if ']' == this.Tail(-1) {
+
+				return NodeTypeArray
+			}
+		case '{':
+			if '}' == this.Tail(-1) {
+
+				return NodeTypeObject
+			}
+		case '"':
+			var str Reader = this.HeadString()
+			if str.IsNotEmpty() {
+
+				if ':' == str.Tail(0) {
+
+					return NodeTypeField
+				} else {
+					return NodeTypeString
+				}
+			}
+		}
+	}
+	return NodeTypeUnrecognized
+}
+
 func (this Reader) Begin() uint32 {
 
 	return this.begin
@@ -74,25 +106,36 @@ func (this Reader) String() string {
 	return string(substring)
 }
 
-func (this Reader) Head(offset uint32) (ch byte) {
-	ch = 0
-	var ofs uint32 = this.begin+offset
-	if ofs < this.end {
+func (this Reader) Head(offset int) (ch byte) {
+
+	var ofs int = int(this.begin)+offset
+	if -1 < ofs && uint32(ofs) < this.end {
 
 		return this.source[ofs]
 	} else {
-		return ch
+		return 0
 	}
 }
 
-func (this Reader) Tail(offset uint32) (ch byte) {
-	ch = 0
-	var ofs uint32 = this.end+offset
-	if ofs < this.length {
+func (this Reader) Tail(offset int) (ch byte) {
+
+	var ofs int = int(this.end)+offset
+	if -1 < ofs && uint32(ofs) < this.length {
 
 		return this.source[ofs]
 	} else {
-		return ch
+		return 0
+	}
+}
+
+func (this Reader) Contains(node Node) bool {
+
+	if this.IsNotEmpty() {
+		var node_head, node_tail uint32 = node.Begin(), node.End()
+
+		return (node_head >= this.begin && node_tail <= this.end)
+	} else {
+		return false
 	}
 }
 
@@ -195,8 +238,8 @@ func (this Reader) HeadString() (empty Reader) {
 	var begin uint32 = this.begin
 	if begin < this.length {
 		if '"' == this.source[begin] {
-			var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'"','"'))
 
+			var first, last uint32 = begin, uint32(span.First(this.source,int(begin+1),int(this.length),'"'))
 			if first < last {
 				var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
 
@@ -206,7 +249,7 @@ func (this Reader) HeadString() (empty Reader) {
 			var first uint32 = uint32(span.First(this.source,int(begin),int(this.length),'"'))
 			if '"' == this.source[first] {
 
-				var last uint32 = uint32(span.Forward(this.source,int(first),int(this.length),'"','"'))
+				var last uint32 = uint32(span.First(this.source,int(first+1),int(this.length),'"'))
 				if first < last {
 					var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
 
@@ -222,6 +265,7 @@ func (this Reader) TailArray() (empty Reader) {
 	var begin uint32 = this.end
 	if begin < this.length {
 		if '[' == this.source[begin] {
+
 			var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'[',']'))
 			if first < last {
 				var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
@@ -229,6 +273,7 @@ func (this Reader) TailArray() (empty Reader) {
 				return reader
 			}
 		} else {
+
 			var first uint32 = uint32(span.First(this.source,int(begin),int(this.length),'['))
 			if '[' == this.source[first] {
 
@@ -293,8 +338,8 @@ func (this Reader) TailString() (empty Reader) {
 	var begin uint32 = this.end
 	if begin < this.length {
 		if '"' == this.source[begin] {
-			var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'"','"'))
 
+			var first, last uint32 = begin, uint32(span.First(this.source,int(begin+1),int(this.length),'"'))
 			if first < last {
 				var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
 
@@ -304,7 +349,7 @@ func (this Reader) TailString() (empty Reader) {
 			var first uint32 = uint32(span.First(this.source,int(begin),int(this.length),'"'))
 			if '"' == this.source[first] {
 
-				var last uint32 = uint32(span.Forward(this.source,int(first),int(this.length),'"','"'))
+				var last uint32 = uint32(span.First(this.source,int(first+1),int(this.length),'"'))
 				if first < last {
 					var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
 

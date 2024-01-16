@@ -3,6 +3,15 @@
  */
 package json
 
+type NodeType uint8
+const (
+	NodeTypeUnrecognized NodeType = 0x00
+	NodeTypeArray        NodeType = 0x10
+	NodeTypeObject       NodeType = 0x20
+	NodeTypeField        NodeType = 0x40
+	NodeTypeString       NodeType = 0x80
+)
+
 type Node interface {
 
 	Location() string
@@ -10,6 +19,8 @@ type Node interface {
 	Source() []byte
 
 	Length() uint32
+
+	Type() NodeType
 
 	First() uint32
 
@@ -25,7 +36,9 @@ type Node interface {
 
 	String() string
 
-	Head(uint32) byte
+	Head(int) byte
 
-	Tail(uint32) byte
+	Tail(int) byte
+
+	Contains(Node) bool
 }
