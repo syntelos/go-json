@@ -8,8 +8,8 @@ JSON IO for GOPL
 Stateless document object model
 
 
-  The document object model is objectified and classified by
-  not collected into an inclusive structure.
+  The document object model is objectified and classified
+  but not collected into an inclusive structure.
 
 
     type NodeType uint8

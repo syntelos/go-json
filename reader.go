@@ -99,11 +99,38 @@ func (this Reader) IsNotEmpty() bool {
 	return (0 <= this.begin && this.begin < this.end)
 }
 
-func (this Reader) String() string {
+func (this Reader) String() (empty string) {
 
-	var substring []byte = this.source[this.begin:this.end]
+	if this.IsNotEmpty() {
 
-	return string(substring)
+		var substring []byte = this.source[this.begin:this.end]
+
+		return string(substring)
+	} else {
+		return empty
+	}
+}
+
+func (this Reader) StringUnquote() (empty string) {
+
+	if this.IsNotEmpty() {
+
+		var first, last int = int(this.begin), int(this.end)-1
+
+		if first < last && '"' == this.source[first] && '"' == this.source[last] {
+
+			var substring []byte = this.source[(first+1):last]
+
+			return string(substring)
+		} else {
+
+			var substring []byte = this.source[this.begin:this.end]
+
+			return string(substring)
+		}
+	} else {
+		return empty
+	}
 }
 
 func (this Reader) Head(offset int) (ch byte) {
@@ -234,6 +261,25 @@ func (this Reader) HeadField() (empty Reader) {
 	return empty
 }
 
+func (this Reader) CondHeadField(field_name string) (empty Reader) {
+	var name Reader = this.HeadString()
+	if name.IsNotEmpty() {
+
+		if ':' == name.Tail(0) && field_name == name.StringUnquote() {
+
+			var value Reader = name.TailString()
+			if value.IsNotEmpty() {
+				var begin, end uint32 = name.begin, value.end
+
+				var reader Reader = Reader{this.location,this.source,this.length,begin,end}
+
+				return reader
+			}
+		}
+	}
+	return empty
+}
+
 func (this Reader) HeadString() (empty Reader) {
 	var begin uint32 = this.begin
 	if begin < this.length {
@@ -320,6 +366,25 @@ func (this Reader) TailField() (empty Reader) {
 	if name.IsNotEmpty() {
 
 		if ':' == name.Tail(0) {
+
+			var value Reader = name.TailString()
+			if value.IsNotEmpty() {
+				var begin, end uint32 = name.begin, value.end
+
+				var reader Reader = Reader{this.location,this.source,this.length,begin,end}
+
+				return reader
+			}
+		}
+	}
+	return empty
+}
+
+func (this Reader) CondTailField(field_name string) (empty Reader) {
+	var name Reader = this.TailString()
+	if name.IsNotEmpty() {
+
+		if ':' == name.Tail(0) && field_name == name.StringUnquote() {
 
 			var value Reader = name.TailString()
 			if value.IsNotEmpty() {
