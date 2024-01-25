@@ -166,7 +166,7 @@ func (this Reader) Contains(node Node) bool {
 	}
 }
 
-func ReadFile(fo *os.File) (this Reader) {
+func ReadFile(fo *os.File) (empty Reader) {
 
 	var fi os.FileInfo
 	var er error
@@ -179,15 +179,24 @@ func ReadFile(fo *os.File) (this Reader) {
 
 			_, er = fo.Read(content)
 			if nil == er {
-				var location string = "file:"+fi.Name()
+				fo.Close()
 
-				var reader Reader = Reader{location,content,length,0,length}
-
-				return reader
+				return NewReader(fi.Name(),content)
 			}
 		}
 	}
-	return this
+	return empty
+}
+
+func NewReader(location string, content []byte) (empty Reader) {
+	var length uint32 = uint32(len(content))
+	if 0 != length {
+		var reader Reader = Reader{location,content,length,0,length}
+
+		return reader
+	} else {
+		return empty
+	}
 }
 
 func (this Reader) HeadArray() (empty Reader) {
