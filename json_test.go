@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestIndex(t *testing.T){
+func TestObject(t *testing.T){
 	var filename string = "tst/index12.json"
 	var fo *os.File
 	var er error
@@ -38,9 +38,9 @@ func TestIndex(t *testing.T){
 		}
 		
 		if 12 != count {
-			t.Fatalf("[TestIndex] Count '%d'",count)
+			t.Fatalf("[TestObject] Count '%d'",count)
 		} else {
-			fmt.Printf("[TestIndex] Count '%d'\n",count)
+			fmt.Printf("[TestObject] Count '%d'\n",count)
 		}
 	}
 }

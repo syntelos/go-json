@@ -1,16 +1,13 @@
 JSON IO for GOPL
 
-
-  A limited subset of JSON constrained by missing syntactic
-  nesting.
+  A superset of JSON allowing unquoted strings in lieu of
+  JSON string conventions.
 
 
 Stateless document object model
 
-
   The document object model is objectified and classified
   but not collected into an inclusive structure.
-
 
     type NodeType uint8
     const (
@@ -55,6 +52,6 @@ Stateless document object model
 
 References
 
-  [JSON] RFC 8259  https://datatracker.ietf.org/doc/html/rfc8259
+  [JSON] https://datatracker.ietf.org/doc/html/rfc8259
   [SPAN] https://github.com/syntelos/go-span
 

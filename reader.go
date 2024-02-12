@@ -48,7 +48,7 @@ func (this Reader) Type() NodeType {
 
 				return NodeTypeObject
 			}
-		case '"':
+		default:
 			var str Reader = this.HeadString()
 			if str.IsNotEmpty() {
 
@@ -199,8 +199,8 @@ func NewReader(location string, content []byte) (empty Reader) {
 	}
 }
 
-func (this Reader) HeadArray() (empty Reader) {
-	var begin uint32 = this.begin
+func (this Reader) ReadArray(begin uint32) (empty Reader) {
+
 	if begin < this.length {
 		if '[' == this.source[begin] {
 			var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'[',']'))
@@ -210,14 +210,41 @@ func (this Reader) HeadArray() (empty Reader) {
 				return reader
 			}
 		} else {
-			var first uint32 = uint32(span.First(this.source,int(begin),int(this.length),'['))
-			if '[' == this.source[first] {
+			var ws int = span.Class(this.source,int(begin),int(this.length),span.WS)
+			if 0 < ws {
+				begin = uint32(ws+1)
+				if '[' == this.source[begin] {
+					var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'[',']'))
+					if first < last {
+						var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
 
-				var last uint32 = uint32(span.Forward(this.source,int(first),int(this.length),'[',']'))
-				if first < last {
-					var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
+						return reader
+					}
+				}
+			} else {
+				begin += 1
+				if begin < this.length {
+					if '[' == this.source[begin] {
+						var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'[',']'))
+						if first < last {
+							var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
 
-					return reader
+							return reader
+						}
+					} else {
+						var ws int = span.Class(this.source,int(begin),int(this.length),span.WS)
+						if 0 < ws {
+							begin = uint32(ws+1)
+							if '[' == this.source[begin] {
+								var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'[',']'))
+								if first < last {
+									var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
+
+									return reader
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -225,8 +252,16 @@ func (this Reader) HeadArray() (empty Reader) {
 	return empty
 }
 
-func (this Reader) HeadObject() (empty Reader) {
-	var begin uint32 = this.begin
+func (this Reader) HeadArray() Reader {
+	return this.ReadArray(this.begin)
+}
+
+func (this Reader) TailArray() Reader {
+	return this.ReadArray(this.end)
+}
+
+func (this Reader) ReadObject(begin uint32) (empty Reader) {
+
 	if begin < this.length {
 		if '{' == this.source[begin] {
 			var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'{','}'))
@@ -236,14 +271,41 @@ func (this Reader) HeadObject() (empty Reader) {
 				return reader
 			}
 		} else {
-			var first uint32 = uint32(span.First(this.source,int(begin),int(this.length),'{'))
-			if '{' == this.source[first] {
+			var ws int = span.Class(this.source,int(begin),int(this.length),span.WS)
+			if 0 < ws {
+				begin = uint32(ws+1)
+				if '{' == this.source[begin] {
+					var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'{','}'))
+					if first < last {
+						var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
 
-				var last uint32 = uint32(span.Forward(this.source,int(first),int(this.length),'{','}'))
-				if first < last {
-					var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
+						return reader
+					}
+				}
+			} else {
+				begin += 1
+				if begin < this.length {
+					if '{' == this.source[begin] {
+						var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'{','}'))
+						if first < last {
+							var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
 
-					return reader
+							return reader
+						}
+					} else {
+						var ws int = span.Class(this.source,int(begin),int(this.length),span.WS)
+						if 0 < ws {
+							begin = uint32(ws+1)
+							if '{' == this.source[begin] {
+								var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'{','}'))
+								if first < last {
+									var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
+
+									return reader
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -251,8 +313,16 @@ func (this Reader) HeadObject() (empty Reader) {
 	return empty
 }
 
-func (this Reader) HeadField() (empty Reader) {
-	var name Reader = this.HeadString()
+func (this Reader) HeadObject() Reader {
+	return this.ReadObject(this.begin)
+}
+
+func (this Reader) TailObject() Reader {
+	return this.ReadObject(this.end)
+}
+
+func (this Reader) ReadField(begin uint32) (empty Reader) {
+	var name Reader = this.ReadString(begin)
 	if name.IsNotEmpty() {
 
 		if ':' == name.Tail(0) {
@@ -270,27 +340,37 @@ func (this Reader) HeadField() (empty Reader) {
 	return empty
 }
 
-func (this Reader) CondHeadField(field_name string) (empty Reader) {
-	var name Reader = this.HeadString()
-	if name.IsNotEmpty() {
+func (this Reader) CondField(field_name string, begin uint32) (empty Reader) {
+	var field Reader = this.ReadField(begin)
+	if field.IsNotEmpty() {
 
+		var name Reader = field.HeadString()
 		if ':' == name.Tail(0) && field_name == name.StringUnquote() {
 
-			var value Reader = name.TailString()
-			if value.IsNotEmpty() {
-				var begin, end uint32 = name.begin, value.end
-
-				var reader Reader = Reader{this.location,this.source,this.length,begin,end}
-
-				return reader
-			}
+			return field
 		}
 	}
 	return empty
 }
 
-func (this Reader) HeadString() (empty Reader) {
-	var begin uint32 = this.begin
+func (this Reader) HeadField() Reader {
+	return this.ReadField(this.begin)
+}
+
+func (this Reader) TailField() Reader {
+	return this.ReadField(this.end)
+}
+
+func (this Reader) CondHeadField(field_name string) Reader {
+	return this.CondField(field_name,this.begin)
+}
+
+func (this Reader) CondTailField(field_name string) Reader {
+	return this.CondField(field_name,this.end)
+}
+
+func (this Reader) ReadString(begin uint32) (empty Reader) {
+
 	if begin < this.length {
 		if '"' == this.source[begin] {
 
@@ -301,14 +381,60 @@ func (this Reader) HeadString() (empty Reader) {
 				return reader
 			}
 		} else {
-			var first uint32 = uint32(span.First(this.source,int(begin),int(this.length),'"'))
-			if '"' == this.source[first] {
+			var ws int = span.Class(this.source,int(begin),int(this.length),span.WS)
+			if 0 < ws {
+				begin = uint32(ws+1)
 
-				var last uint32 = uint32(span.First(this.source,int(first+1),int(this.length),'"'))
+				if '"' == this.source[begin] {
+
+					var first, last uint32 = begin, uint32(span.First(this.source,int(begin+1),int(this.length),'"'))
+					if first < last {
+						var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
+
+						return reader
+					}
+				}
+			} else {
+				var first, last int = int(begin), span.Class(this.source,int(begin),int(this.length),span.GI)
 				if first < last {
-					var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
+					var reader Reader = Reader{this.location,this.source,this.length,uint32(first),uint32(last+1)}
 
 					return reader
+				} else {
+					begin += 1
+					if begin < this.length {
+						if '"' == this.source[begin] {
+
+							var first, last uint32 = begin, uint32(span.First(this.source,int(begin+1),int(this.length),'"'))
+							if first < last {
+								var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
+
+								return reader
+							}
+						} else {
+							var ws int = span.Class(this.source,int(begin),int(this.length),span.WS)
+							if 0 < ws {
+								begin = uint32(ws+1)
+
+								if '"' == this.source[begin] {
+
+									var first, last uint32 = begin, uint32(span.First(this.source,int(begin+1),int(this.length),'"'))
+									if first < last {
+										var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
+
+										return reader
+									}
+								}
+							} else {
+								var first, last int = int(begin), span.Class(this.source,int(begin),int(this.length),span.GI)
+								if first < last {
+									var reader Reader = Reader{this.location,this.source,this.length,uint32(first),uint32(last+1)}
+
+									return reader
+								}
+							}
+						}
+					}
 				}
 			}
 		}
@@ -316,121 +442,10 @@ func (this Reader) HeadString() (empty Reader) {
 	return empty
 }
 
-func (this Reader) TailArray() (empty Reader) {
-	var begin uint32 = this.end
-	if begin < this.length {
-		if '[' == this.source[begin] {
-
-			var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'[',']'))
-			if first < last {
-				var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
-
-				return reader
-			}
-		} else {
-
-			var first uint32 = uint32(span.First(this.source,int(begin),int(this.length),'['))
-			if '[' == this.source[first] {
-
-				var last uint32 = uint32(span.Forward(this.source,int(first),int(this.length),'[',']'))
-				if first < last {
-					var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
-
-					return reader
-				}
-			}
-		}
-	}
-	return empty
+func (this Reader) HeadString() Reader {
+	return this.ReadString(this.begin)
 }
 
-func (this Reader) TailObject() (empty Reader) {
-	var begin uint32 = this.end
-	if begin < this.length {
-		if '{' == this.source[begin] {
-			var first, last uint32 = begin, uint32(span.Forward(this.source,int(begin),int(this.length),'{','}'))
-			if first < last {
-				var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
-
-				return reader
-			}
-		} else {
-			var first uint32 = uint32(span.First(this.source,int(begin),int(this.length),'{'))
-			if '{' == this.source[first] {
-
-				var last uint32 = uint32(span.Forward(this.source,int(first),int(this.length),'{','}'))
-				if first < last {
-					var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
-
-					return reader
-				}
-			}
-		}
-	}
-	return empty
-}
-
-func (this Reader) TailField() (empty Reader) {
-	var name Reader = this.TailString()
-	if name.IsNotEmpty() {
-
-		if ':' == name.Tail(0) {
-
-			var value Reader = name.TailString()
-			if value.IsNotEmpty() {
-				var begin, end uint32 = name.begin, value.end
-
-				var reader Reader = Reader{this.location,this.source,this.length,begin,end}
-
-				return reader
-			}
-		}
-	}
-	return empty
-}
-
-func (this Reader) CondTailField(field_name string) (empty Reader) {
-	var name Reader = this.TailString()
-	if name.IsNotEmpty() {
-
-		if ':' == name.Tail(0) && field_name == name.StringUnquote() {
-
-			var value Reader = name.TailString()
-			if value.IsNotEmpty() {
-				var begin, end uint32 = name.begin, value.end
-
-				var reader Reader = Reader{this.location,this.source,this.length,begin,end}
-
-				return reader
-			}
-		}
-	}
-	return empty
-}
-
-func (this Reader) TailString() (empty Reader) {
-	var begin uint32 = this.end
-	if begin < this.length {
-		if '"' == this.source[begin] {
-
-			var first, last uint32 = begin, uint32(span.First(this.source,int(begin+1),int(this.length),'"'))
-			if first < last {
-				var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
-
-				return reader
-			}
-		} else {
-			var first uint32 = uint32(span.First(this.source,int(begin),int(this.length),'"'))
-			if '"' == this.source[first] {
-
-				var last uint32 = uint32(span.First(this.source,int(first+1),int(this.length),'"'))
-				if first < last {
-					var reader Reader = Reader{this.location,this.source,this.length,first,(last+1)}
-
-					return reader
-				}
-			}
-		}
-	}
-	return empty
+func (this Reader) TailString() Reader {
+	return this.ReadString(this.end)
 }
